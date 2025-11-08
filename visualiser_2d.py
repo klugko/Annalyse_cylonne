@@ -6,22 +6,16 @@ from plotly.subplots import make_subplots
 # Charger les données
 df = pd.read_excel('COORDONNEES.xlsx')
 
-# Nettoyer les données - remplir les valeurs manquantes pour les cyclones
 df['Saison cyclonique'] = df['Saison cyclonique'].ffill()
 df['Nom du cyclone'] = df['Nom du cyclone'].ffill()
 
-# Convertir les colonnes de coordonnées en numérique
 df['Lat'] = pd.to_numeric(df['Lat'], errors='coerce')
 df['Lon'] = pd.to_numeric(df['Lon'], errors='coerce')
-
-# Créer une colonne datetime complète
 df['Date'] = pd.to_datetime(df['Date'])
 df['Datetime'] = df['Date'] + pd.to_timedelta(df['Heure'], unit='h')
 
-# Supprimer les lignes avec des dates ou coordonnées invalides
 df = df.dropna(subset=['Datetime', 'Lat', 'Lon'])
 
-# Fonction pour formater la date en toute sécurité
 def safe_strftime(dt, fmt='%Y-%m-%d %H:%M'):
     """Formatte une date en gérant les valeurs NaT"""
     if pd.isna(dt):
@@ -31,7 +25,7 @@ def safe_strftime(dt, fmt='%Y-%m-%d %H:%M'):
     except:
         return 'Date invalide'
 
-# Fonction pour créer la visualisation
+
 def plot_cyclones_tracks(cyclone_names=None):
     """
     Affiche les trajets des cyclones sur un globe terrestre
@@ -40,26 +34,21 @@ def plot_cyclones_tracks(cyclone_names=None):
     cyclone_names (list): Liste des noms de cyclones à afficher. Si None, affiche tous.
     """
     
-    # Filtrer par cyclones spécifiques si demandé
     if cyclone_names:
         filtered_df = df[df['Nom du cyclone'].isin(cyclone_names)].copy()
     else:
         filtered_df = df.copy()
     
-    # Créer la figure
     fig = go.Figure()
     
-    # Couleurs pour différents cyclones
     colors = px.colors.qualitative.Set1
     
-    # Grouper par cyclone et tracer chaque trajet
     cyclones = filtered_df['Nom du cyclone'].unique()
     
     for i, cyclone in enumerate(cyclones):
         cyclone_data = filtered_df[filtered_df['Nom du cyclone'] == cyclone].sort_values('Datetime')
         color = colors[i % len(colors)]
         
-        # Préparer le texte pour le hover
         hover_text = []
         for _, row in cyclone_data.iterrows():
             date_str = safe_strftime(row['Datetime'])
@@ -69,7 +58,6 @@ def plot_cyclones_tracks(cyclone_names=None):
                 f"Position: ({row['Lat']:.2f}, {row['Lon']:.2f})"
             )
         
-        # Tracer la ligne du trajet
         fig.add_trace(go.Scattergeo(
             lon=cyclone_data['Lon'],
             lat=cyclone_data['Lat'],
@@ -81,7 +69,6 @@ def plot_cyclones_tracks(cyclone_names=None):
             hoverinfo='text'
         ))
         
-        # Ajouter le point de départ
         start_point = cyclone_data.iloc[0]
         start_date_str = safe_strftime(start_point['Datetime'])
         fig.add_trace(go.Scattergeo(
@@ -95,7 +82,6 @@ def plot_cyclones_tracks(cyclone_names=None):
             showlegend=False
         ))
         
-        # Ajouter le point d'arrivée
         end_point = cyclone_data.iloc[-1]
         end_date_str = safe_strftime(end_point['Datetime'])
         fig.add_trace(go.Scattergeo(
@@ -109,7 +95,6 @@ def plot_cyclones_tracks(cyclone_names=None):
             showlegend=False
         ))
     
-    # Configuration du layout
     fig.update_layout(
         title_text='Trajets des Cyclones - Océan Indien Sud',
         showlegend=True,
@@ -128,7 +113,6 @@ def plot_cyclones_tracks(cyclone_names=None):
     
     return fig
 
-# Fonction pour visualiser un cyclone spécifique avec animation temporelle
 def plot_cyclone_animation(cyclone_name):
     """
     Affiche un cyclone spécifique avec animation de son trajet dans le temps
@@ -141,7 +125,6 @@ def plot_cyclone_animation(cyclone_name):
     
     fig = go.Figure()
     
-    # Tracer le trajet complet en fond
     fig.add_trace(go.Scattergeo(
         lon=cyclone_data['Lon'],
         lat=cyclone_data['Lat'],
@@ -151,7 +134,6 @@ def plot_cyclone_animation(cyclone_name):
         showlegend=False
     ))
     
-    # Ajouter l'animation
     frames = []
     for i, (idx, row) in enumerate(cyclone_data.iterrows()):
         frame = go.Frame(
@@ -170,7 +152,6 @@ def plot_cyclone_animation(cyclone_name):
     
     fig.frames = frames
     
-    # Préparer les étapes du slider avec gestion sécurisée des dates
     steps = []
     for i, (idx, row) in enumerate(cyclone_data.iterrows()):
         date_str = safe_strftime(row['Datetime'], '%m-%d %Hh')
@@ -230,14 +211,11 @@ def plot_cyclone_animation(cyclone_name):
     
     return fig
 
-# Fonction utilitaire pour lister tous les cyclones
 def list_all_cyclones():
     """Retourne la liste de tous les cyclones disponibles"""
     return df['Nom du cyclone'].unique().tolist()
 
-# Exemple d'utilisation
 if __name__ == "__main__":
-    # Afficher tous les cyclones
     print("Cyclones disponibles:", list_all_cyclones())
     
     # Visualiser tous les cyclones

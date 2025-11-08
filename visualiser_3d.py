@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-visualiser_cyclones_globe.py
-Script complet pour lire '/mnt/data/COORDONNEES.xlsx', nettoyer les données,
+Script complet pour lire 'COORDONNEES.xlsx', nettoyer les données,
 et produire une visualisation interactive (HTML) d'un globe avec les trajectoires
 des cyclones et des marqueurs temporels (hover = date/heure).
 """
@@ -12,25 +11,24 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 
+
 # --------------------------
 # CONFIG
 # --------------------------
-EXCEL_PATH = Path("COORDONNEES.xlsx")   # <-- change si nécessaire
+EXCEL_PATH = Path("COORDONNEES.xlsx")  
 OUTPUT_HTML = Path("cyclone_tracks_globe.html")
-OUTPUT_PNG = Path("cyclone_tracks_globe.png")    # optionnel (nécessite kaleido)
-ANIMATE = True    # True pour animation temporelle (marqueurs mobiles), False pour statique
+OUTPUT_PNG = Path("cyclone_tracks_globe.png")    
+ANIMATE = True
+
 
 # --------------------------
 # CHARGEMENT ET NETTOYAGE
 # --------------------------
 def load_and_clean(path: Path) -> pd.DataFrame:
-    # lire le fichier ; engine openpyxl
     df = pd.read_excel(path, engine="openpyxl")
 
-    # noms de colonnes attendus (tolérance aux espaces)
     df.rename(columns=lambda c: c.strip() if isinstance(c, str) else c, inplace=True)
 
-    # colonnes clés (adapte si ton XLSX a de légères variations)
     expected = ['Saison cyclonique', 'Nom du cyclone', 'Durée de vie', 'Date', 'Heure', 'Lat', 'Lon']
     for c in expected:
         if c not in df.columns:
@@ -39,20 +37,10 @@ def load_and_clean(path: Path) -> pd.DataFrame:
     # supprimer lignes sans coordonnées
     df = df.loc[ df['Lat'].notna() & df['Lon'].notna() ].copy()
 
-    # forward-fill des métadonnées (certaines lignes n'ont la saison/nom/date que sur la 1ère ligne du groupe)
     df[['Saison cyclonique','Nom du cyclone','Durée de vie','Date']] = df[['Saison cyclonique','Nom du cyclone','Durée de vie','Date']].ffill()
-
-    # convertir Date en datetime (si pas déjà)
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-    # convert Heure en entier (peut être '0', 6, 12, 18 ou '00', etc.)
-    # si la colonne est texte, on extrait l'entier
     df['Heure'] = df['Heure'].astype(str).str.extract(r'(\d{1,2})')[0].astype(float).fillna(0).astype(int)
-
-    # construire datetime complet
     df['datetime'] = df['Date'] + pd.to_timedelta(df['Heure'], unit='h')
-
-    # tri par cyclone puis datetime pour cohérence
     df.sort_values(['Saison cyclonique','Nom du cyclone','datetime'], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
@@ -65,13 +53,12 @@ def make_plot(df: pd.DataFrame, animate: bool=True):
     cyclones = df['Nom du cyclone'].unique()
     seasons = df['Saison cyclonique'].unique()
 
-    # palette automatique (plotly)
     colors = px.colors.qualitative.Plotly
     color_map = {name: colors[i % len(colors)] for i, name in enumerate(cyclones)}
 
     fig = go.Figure()
 
-    # 1) Ajouter chemins (lines) pour chaque cyclone
+    # Ajout chemins (lines) pour chaque cyclone
     for name in cyclones:
         sub = df[df['Nom du cyclone'] == name]
         fig.add_trace(go.Scattergeo(
@@ -88,15 +75,12 @@ def make_plot(df: pd.DataFrame, animate: bool=True):
             opacity=0.9
         ))
 
-    # 2) Animated current positions (one scattergeo per frame)
+    # Animated current positions
     if animate:
-        # frames times = unique sorted datetimes
         times = sorted(df['datetime'].dropna().unique())
         frames = []
         for t in times:
-            # pour chaque cyclone, si point à ce time, on ajoute le point ; sinon non
             frame_df = df[df['datetime'] == t]
-            # we add single scatter for all current points at this time
             frames.append(go.Frame(
                 data=[
                     go.Scattergeo(
@@ -109,11 +93,10 @@ def make_plot(df: pd.DataFrame, animate: bool=True):
                         marker_color = [color_map[n] for n in frame_df['Nom du cyclone']]
                     )
                 ],
-                name = str(t)  # frame name = timestamp string
+                name = str(t) 
             ))
         fig.frames = frames
 
-        # ajouter un trace "invisible" qui servira de placeholder pour l'animation (sera remplacée par frames)
         fig.add_trace(go.Scattergeo(
             lon = [], lat = [],
             mode = 'markers',
@@ -121,7 +104,6 @@ def make_plot(df: pd.DataFrame, animate: bool=True):
             name = 'Positions (anim)'
         ))
 
-    # Layout - globe orthographic
     fig.update_layout(
         title_text = "Trajectoires de cyclones sur globe (interactif). Hover pour détails. ",
         showlegend = True,
@@ -177,6 +159,7 @@ def make_plot(df: pd.DataFrame, animate: bool=True):
 
     return fig
 
+
 # --------------------------
 # MAIN
 # --------------------------
@@ -195,7 +178,6 @@ def main():
     fig.write_html(OUTPUT_HTML, include_plotlyjs='cdn')
     print(f"Visualisation sauvegardée dans {OUTPUT_HTML.resolve()}")
 
-    # option : sauvegarde PNG si kaleido installé
     try:
         fig.write_image(str(OUTPUT_PNG))
         print(f"PNG également sauvegardé dans {OUTPUT_PNG.resolve()}")
